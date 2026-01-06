@@ -1,0 +1,52 @@
+# ============================================================================
+# Docker Compose - ESA Data Assistant
+# ============================================================================
+#
+# Usage:
+#   docker-compose up -d      # Démarre en arrière-plan
+#   docker-compose logs -f    # Affiche les logs
+#   docker-compose down       # Arrête les services
+#
+# Avant le premier lancement, créez le fichier .env à partir de .env.example
+# et configurez votre clé API Mistral.
+# ============================================================================
+
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: esa-data-assistant
+    ports:
+      - "80:8000"
+    environment:
+      # Charge les variables depuis .env
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY}
+      - MISTRAL_MODEL=${MISTRAL_MODEL:-mistral-small-latest}
+      - ESA_CATALOG_URL=${ESA_CATALOG_URL:-https://eocat.esa.int/eo-catalogue/}
+      - CHROMA_PERSIST_DIR=/app/data/chroma
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      # Persistance des données ChromaDB
+      - ./data:/app/data
+      # Monte le frontend
+      - ./frontend:/app/frontend:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# Réseau par défaut
+networks:
+  default:
+    name: esa-network

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESA Data Assistant - Explorez les données satellites</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <!-- Favicon satellite -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🛰️</text></svg>">
+</head>
+<body>
+    <!-- Étoiles animées en arrière-plan -->
+    <div class="stars"></div>
+    <div class="stars2"></div>
+    <div class="stars3"></div>
+
+    <div class="app-container">
+        <!-- En-tête -->
+        <header class="header">
+            <div class="logo">
+                <span class="logo-icon">🛰️</span>
+                <div class="logo-text">
+                    <h1>ESA Data Assistant</h1>
+                    <p class="tagline">Explorez le catalogue de données satellites européen</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <button id="clear-chat" class="btn-secondary" title="Nouvelle conversation">
+                    🔄 Nouveau
+                </button>
+            </div>
+        </header>
+
+        <!-- Zone de chat principale -->
+        <main class="chat-container">
+            <!-- Messages -->
+            <div id="chat-messages" class="messages">
+                <!-- Message de bienvenue (injecté par JS) -->
+            </div>
+
+            <!-- Suggestions de questions -->
+            <div id="suggestions" class="suggestions">
+                <p class="suggestions-title">💡 Suggestions pour commencer :</p>
+                <div class="suggestions-buttons">
+                    <button class="suggestion-btn" data-question="Quelles données sont disponibles sur les forêts ?">
+                        🌲 Données sur les forêts
+                    </button>
+                    <button class="suggestion-btn" data-question="Je cherche des images radar récentes">
+                        📡 Images radar
+                    </button>
+                    <button class="suggestion-btn" data-question="Comment accéder aux données Sentinel ?">
+                        🛰️ Données Sentinel
+                    </button>
+                    <button class="suggestion-btn" data-question="C'est quoi le SAR ?">
+                        ❓ Qu'est-ce que le SAR ?
+                    </button>
+                </div>
+            </div>
+        </main>
+
+        <!-- Zone de saisie -->
+        <footer class="input-container">
+            <form id="chat-form" class="input-form">
+                <div class="input-wrapper">
+                    <textarea
+                        id="user-input"
+                        placeholder="Posez votre question sur les données satellites ESA..."
+                        rows="1"
+                        maxlength="2000"
+                    ></textarea>
+                    <button type="submit" id="send-btn" class="send-button" title="Envoyer">
+                        <svg viewBox="0 0 24 24" width="24" height="24">
+                            <path fill="currentColor" d="M2,21L23,12L2,3V10L17,12L2,14V21Z"/>
+                        </svg>
+                    </button>
+                </div>
+                <p class="input-hint">
+                    Appuyez sur Entrée pour envoyer • Maj+Entrée pour nouvelle ligne
+                </p>
+            </form>
+        </footer>
+    </div>
+
+    <!-- Indicateur de chargement (overlay) -->
+    <div id="loading-overlay" class="loading-overlay hidden">
+        <div class="loading-content">
+            <div class="satellite-loader">🛰️</div>
+            <p>Recherche en cours...</p>
+        </div>
+    </div>
+
+    <!-- Tooltip pour les termes techniques -->
+    <div id="tooltip" class="tooltip hidden"></div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
