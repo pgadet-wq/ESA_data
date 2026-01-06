@@ -14,6 +14,79 @@ from ..config import settings
 # Configuration du logger
 logger = logging.getLogger(__name__)
 
+# Mapping français -> anglais pour les termes de recherche courants
+FR_EN_MAPPING = {
+    # Types de données
+    "optique": "optical",
+    "optiques": "optical",
+    "radar": "radar",
+    "images": "imagery",
+    "image": "imagery",
+    "satellite": "satellite",
+    "satellites": "satellite",
+    "données": "data",
+    "mesures": "measurements",
+    "mesure": "measurement",
+
+    # Thématiques
+    "forêt": "forest",
+    "forêts": "forest",
+    "forestier": "forest",
+    "forestières": "forest",
+    "océan": "ocean",
+    "océans": "ocean",
+    "mer": "sea",
+    "mers": "ocean sea",
+    "maritime": "marine ocean",
+    "climat": "climate",
+    "climatique": "climate",
+    "atmosphère": "atmosphere",
+    "atmosphérique": "atmosphere atmospheric",
+    "température": "temperature",
+    "végétation": "vegetation",
+    "agriculture": "agriculture",
+    "agricole": "agriculture crop",
+    "sol": "soil land",
+    "sols": "soil land",
+    "terre": "land earth",
+    "glace": "ice",
+    "neige": "snow",
+    "eau": "water",
+    "inondation": "flood",
+    "sécheresse": "drought",
+    "urbain": "urban",
+    "ville": "urban city",
+    "pollution": "pollution",
+    "qualité de l'air": "air quality",
+
+    # Caractéristiques
+    "haute résolution": "high resolution",
+    "résolution": "resolution",
+    "multispectral": "multispectral",
+    "multispectrales": "multispectral",
+    "hyperspectral": "hyperspectral",
+    "infrarouge": "infrared",
+    "thermique": "thermal",
+    "altimétrie": "altimetry",
+    "altimétrique": "altimetry",
+    "gravité": "gravity",
+    "magnétique": "magnetic",
+    "géolocalisé": "geolocated geolocation",
+    "géolocalisation": "geolocation",
+    "topographie": "topography elevation",
+
+    # Missions
+    "sentinel": "sentinel",
+    "copernicus": "copernicus",
+    "envisat": "envisat",
+    "swarm": "swarm",
+    "cryosat": "cryosat",
+    "smos": "smos",
+    "goce": "goce",
+    "aeolus": "aeolus",
+    "biomass": "biomass",
+}
+
 
 class ESACatalogService:
     """
@@ -25,6 +98,7 @@ class ESACatalogService:
         """Initialise la connexion au catalogue ESA."""
         self.catalog_url = settings.esa_catalog_url
         self._client = None
+        self._all_collections_cache = None
 
     def _get_client(self) -> Client:
         """
@@ -43,6 +117,31 @@ class ESACatalogService:
                 )
         return self._client
 
+    def _translate_query(self, query: str) -> List[str]:
+        """
+        Traduit une requête française en termes anglais pour la recherche.
+        Retourne une liste de termes de recherche.
+        """
+        query_lower = query.lower()
+        search_terms = set()
+
+        # Ajoute les termes originaux
+        for word in query_lower.split():
+            search_terms.add(word)
+
+            # Traduit si le mot existe dans le mapping
+            if word in FR_EN_MAPPING:
+                for en_term in FR_EN_MAPPING[word].split():
+                    search_terms.add(en_term)
+
+        # Cherche aussi les expressions complètes
+        for fr_term, en_terms in FR_EN_MAPPING.items():
+            if fr_term in query_lower:
+                for en_term in en_terms.split():
+                    search_terms.add(en_term)
+
+        return list(search_terms)
+
     def search_collections(
         self,
         query: Optional[str] = None,
@@ -50,6 +149,7 @@ class ESACatalogService:
     ) -> List[Dict[str, Any]]:
         """
         Recherche des collections dans le catalogue ESA.
+        Supporte les requêtes en français grâce à un mapping automatique.
 
         Args:
             query: Terme de recherche (optionnel)
@@ -61,31 +161,53 @@ class ESACatalogService:
         try:
             client = self._get_client()
             collections = []
+            seen_count = 0
+            max_to_scan = 500  # Scan plus de collections pour trouver des matchs
 
             logger.info(f"Recherche de collections (query={query}, limit={limit})")
 
+            # Traduit la requête en termes anglais
+            search_terms = self._translate_query(query) if query else []
+            logger.info(f"Termes de recherche: {search_terms}")
+
             # Parcourt les collections du catalogue
-            for i, collection in enumerate(client.get_collections()):
-                if i >= limit:
+            for collection in client.get_collections():
+                seen_count += 1
+                if seen_count > max_to_scan:
                     break
 
-                # Filtre par query si spécifié
-                if query:
-                    query_lower = query.lower()
-                    title = (collection.title or "").lower()
-                    description = (collection.description or "").lower()
-                    keywords = " ".join(collection.keywords or []).lower()
+                if len(collections) >= limit:
+                    break
 
-                    # Vérifie si le terme de recherche est présent
-                    if not any(query_lower in text for text in [title, description, keywords]):
-                        continue
+                # Si pas de query, retourne les premières collections
+                if not query:
+                    col_data = self._collection_to_dict(collection)
+                    collections.append(col_data)
+                    continue
 
-                # Extrait les métadonnées
-                col_data = self._collection_to_dict(collection)
-                collections.append(col_data)
+                # Recherche avec les termes traduits
+                title = (collection.title or "").lower()
+                description = (collection.description or "").lower()
+                keywords = " ".join(collection.keywords or []).lower()
+                collection_text = f"{title} {description} {keywords}"
 
-            logger.info(f"Trouvé {len(collections)} collections")
-            return collections
+                # Vérifie si au moins un terme de recherche est présent
+                match_count = sum(1 for term in search_terms if term in collection_text)
+
+                if match_count > 0:
+                    col_data = self._collection_to_dict(collection)
+                    col_data["_match_score"] = match_count  # Score pour le tri
+                    collections.append(col_data)
+
+            # Trie par score de correspondance si disponible
+            if query:
+                collections.sort(key=lambda x: x.get("_match_score", 0), reverse=True)
+                # Supprime le score du résultat final
+                for col in collections:
+                    col.pop("_match_score", None)
+
+            logger.info(f"Trouvé {len(collections)} collections (scanné {seen_count})")
+            return collections[:limit]
 
         except Exception as e:
             logger.error(f"Erreur lors de la recherche de collections: {e}")
