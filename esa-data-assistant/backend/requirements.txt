@@ -30,3 +30,7 @@ requests==2.31.0
 
 # Utilitaires
 tenacity==8.2.3
+
+# Web scraping pour ESA EO Gateway
+beautifulsoup4==4.12.3
+lxml==5.1.0

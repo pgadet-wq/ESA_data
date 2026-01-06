@@ -59,6 +59,27 @@ ESA_TOOLS = [
     {
         "type": "function",
         "function": {
+            "name": "get_technical_details",
+            "description": """Récupère les spécifications techniques détaillées d'une mission ou collection
+            depuis le site ESA EO Gateway. Utilisez cet outil quand l'utilisateur demande des détails
+            techniques précis comme: couverture spatiale/temporelle, altitude d'orbite, type d'orbite,
+            date de lancement, opérateurs, statut de mission, version du processeur, etc.
+            Exemples: "technical details for Swarm", "specifications of Sentinel-2", "Copernicus DEM details".""",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "collection_name": {
+                        "type": "string",
+                        "description": "Nom de la collection ou mission (ex: 'Swarm Level 1B', 'Sentinel-2 Level-2A', 'Copernicus DEM')"
+                    }
+                },
+                "required": ["collection_name"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "explain_term",
             "description": """Explique un terme technique lié à l'observation de la Terre.
             Utilisez cet outil quand l'utilisateur ne comprend pas un terme technique
@@ -204,6 +225,11 @@ def execute_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
                 collection_id=arguments.get("collection_id", "")
             )
 
+        elif tool_name == "get_technical_details":
+            return _get_technical_details(
+                collection_name=arguments.get("collection_name", "")
+            )
+
         elif tool_name == "explain_term":
             return _explain_term(
                 term=arguments.get("term", "")
@@ -212,7 +238,7 @@ def execute_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         else:
             return {
                 "error": f"Outil inconnu: {tool_name}",
-                "available_tools": ["search_esa_collections", "get_collection_details", "explain_term"]
+                "available_tools": ["search_esa_collections", "get_collection_details", "get_technical_details", "explain_term"]
             }
 
     except Exception as e:
@@ -329,3 +355,44 @@ def _explain_term(term: str) -> Dict[str, Any]:
         "suggestion": "Essayez de me poser une question plus générale sur ce concept.",
         "available_terms": available_terms[:10]
     }
+
+
+def _get_technical_details(collection_name: str) -> Dict[str, Any]:
+    """
+    Récupère les détails techniques depuis ESA EO Gateway.
+    """
+    from ..services.esa_gateway import esa_gateway
+
+    if not collection_name:
+        return {"error": "Nom de collection requis"}
+
+    logger.info(f"Récupération des détails techniques pour: {collection_name}")
+
+    details = esa_gateway.get_collection_details(collection_name)
+
+    if "error" in details:
+        return details
+
+    # Formate la réponse pour le LLM
+    response = {
+        "collection": collection_name,
+        "source": details.get("source", "ESA EO Gateway"),
+        "url": details.get("url", "")
+    }
+
+    if "title" in details:
+        response["title"] = details["title"]
+
+    if "description" in details:
+        response["description"] = details["description"][:500] + "..." if len(details.get("description", "")) > 500 else details.get("description", "")
+
+    if "technical_specifications" in details:
+        response["specifications"] = details["technical_specifications"]
+
+    if "data_specifications" in details:
+        response["data_tables"] = details["data_specifications"]
+
+    if "related_links" in details:
+        response["links"] = details["related_links"][:5]
+
+    return response
