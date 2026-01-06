@@ -224,8 +224,8 @@ def _search_esa_collections(query: str, top_k: int = 5) -> Dict[str, Any]:
     """
     Recherche des collections ESA (sémantique + STAC).
     """
-    from .vector_store import vector_store
-    from .esa_catalog import esa_catalog
+    from ..services.vector_store import vector_store
+    from ..services.esa_catalog import esa_catalog
 
     results = []
 
@@ -271,7 +271,7 @@ def _get_collection_details(collection_id: str) -> Dict[str, Any]:
     """
     Récupère les détails d'une collection.
     """
-    from .esa_catalog import esa_catalog
+    from ..services.esa_catalog import esa_catalog
 
     details = esa_catalog.get_collection_details(collection_id)
 

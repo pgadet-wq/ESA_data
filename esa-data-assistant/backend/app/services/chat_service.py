@@ -5,6 +5,7 @@ Gère le dialogue avec l'utilisateur et le function calling.
 
 import json
 import logging
+import uuid
 from typing import List, Dict, Any, Optional
 from mistralai.client import MistralClient
 from mistralai.models.chat_completion import ChatMessage
@@ -121,7 +122,10 @@ class ChatService:
                     tool_name = tool_call.function.name
                     tool_args = json.loads(tool_call.function.arguments)
 
-                    logger.info(f"Exécution de {tool_name} avec {tool_args}")
+                    # Génère un ID si non fourni par l'API
+                    tool_call_id = getattr(tool_call, 'id', None) or f"call_{uuid.uuid4().hex[:8]}"
+
+                    logger.info(f"Exécution de {tool_name} avec {tool_args} (id: {tool_call_id})")
                     tools_used.append(tool_name)
 
                     # Exécute l'outil
@@ -133,7 +137,7 @@ class ChatService:
                             sources.append(col.get("title", col.get("id", "")))
 
                     tool_results.append({
-                        "tool_call_id": tool_call.id,
+                        "tool_call_id": tool_call_id,
                         "name": tool_name,
                         "result": json.dumps(result, ensure_ascii=False)
                     })
