@@ -143,15 +143,30 @@ class ChatService:
                     })
 
                 # Ajoute les résultats des outils aux messages
-                messages.append(assistant_message)
+                # Convertit assistant_message en dict pour ajouter aux messages
+                messages.append({
+                    "role": "assistant",
+                    "content": assistant_message.content or "",
+                    "tool_calls": [
+                        {
+                            "id": tr["tool_call_id"],
+                            "type": "function",
+                            "function": {
+                                "name": tr["name"],
+                                "arguments": tool_call.function.arguments
+                            }
+                        }
+                        for tr, tool_call in zip(tool_results, assistant_message.tool_calls)
+                    ]
+                })
 
                 for tr in tool_results:
-                    messages.append(ChatMessage(
-                        role="tool",
-                        name=tr["name"],
-                        content=tr["result"],
-                        tool_call_id=tr["tool_call_id"]
-                    ))
+                    messages.append({
+                        "role": "tool",
+                        "name": tr["name"],
+                        "content": tr["result"],
+                        "tool_call_id": tr["tool_call_id"]
+                    })
 
                 # Deuxième appel pour générer la réponse finale
                 final_response = client.chat(
